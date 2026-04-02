@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unigest"
+version = "0.1.0"
+description = "Universal content ingestion and extraction service"
+requires-python = ">=3.12"
+dependencies = [
+    "python-magic",
+]
+
+[project.optional-dependencies]
+server = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "pydantic",
+    "pydantic-settings",
+    "httpx",
+    "alembic",
+]
+worker = [
+    "trafilatura",
+    "pymupdf",
+    "python-docx",
+    "openpyxl",
+    "pytesseract",
+    "Pillow",
+    "playwright",
+    "playwright-stealth",
+    "curl_cffi",
+    "fake-useragent",
+    "ollama",
+    "httpx",
+]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+]
+
+[tool.setuptools.packages.find]
+include = ["shared*", "server*", "worker*"]
