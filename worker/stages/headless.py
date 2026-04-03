@@ -20,9 +20,14 @@ async def run_headless(job: dict, http_client: httpx.AsyncClient) -> ExtractionR
 
     try:
         from playwright.async_api import async_playwright
-        from playwright_stealth import stealth_async
     except ImportError:
-        raise ExtractionError("missing_dependency", "playwright or playwright-stealth not installed")
+        raise ExtractionError("missing_dependency", "playwright not installed")
+
+    try:
+        from playwright_stealth import Stealth
+        stealth = Stealth()
+    except ImportError:
+        stealth = None
 
     try:
         async with async_playwright() as p:
@@ -32,7 +37,8 @@ async def run_headless(job: dict, http_client: httpx.AsyncClient) -> ExtractionR
                            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             )
             page = await context.new_page()
-            await stealth_async(page)
+            if stealth:
+                await stealth.apply_stealth_async(page)
 
             await page.goto(url, wait_until="networkidle", timeout=30000)
             # Wait a bit for any late JS rendering

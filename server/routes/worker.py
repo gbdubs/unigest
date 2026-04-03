@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.db import get_db
@@ -70,16 +70,30 @@ async def submit_result(
 
     now = datetime.now(timezone.utc)
 
-    # Save result
-    result = ResultRow(
-        content_hash=job.content_hash or "",
-        extracted_text=body.extracted_text,
-        metadata_=body.metadata,
-        quality_score=body.quality_score,
-        extraction_strategy=body.extraction_strategy,
-    )
-    db.add(result)
-    await db.flush()
+    # Check for existing result with same content hash (e.g. force_refresh or retry)
+    existing = None
+    if job.content_hash:
+        stmt = select(ResultRow).where(ResultRow.content_hash == job.content_hash)
+        existing = (await db.execute(stmt)).scalar_one_or_none()
+
+    if existing:
+        # Update the existing result
+        existing.extracted_text = body.extracted_text
+        existing.metadata_ = body.metadata
+        existing.quality_score = body.quality_score
+        existing.extraction_strategy = body.extraction_strategy
+        existing.flagged = False
+        result = existing
+    else:
+        result = ResultRow(
+            content_hash=job.content_hash or str(uuid.uuid4()),
+            extracted_text=body.extracted_text,
+            metadata_=body.metadata,
+            quality_score=body.quality_score,
+            extraction_strategy=body.extraction_strategy,
+        )
+        db.add(result)
+        await db.flush()
 
     # Update job
     job.status = "completed"

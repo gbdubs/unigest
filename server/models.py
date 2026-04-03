@@ -12,7 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    Real,
+    Float,
     String,
     Text,
     func,
@@ -60,7 +60,7 @@ class ResultRow(Base):
     content_hash = Column(String, nullable=False)
     extracted_text = Column(Text, nullable=False)
     metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
-    quality_score = Column(Real)
+    quality_score = Column(Float)
     extraction_strategy = Column(String, nullable=False)
     extractor_id = Column(UUID(as_uuid=True), ForeignKey("extractors.id"))
     flagged = Column(Boolean, nullable=False, default=False)
@@ -99,7 +99,7 @@ class ExtractionLogRow(Base):
     stage = Column(String, nullable=False)
     extractor_id = Column(UUID(as_uuid=True), ForeignKey("extractors.id"))
     success = Column(Boolean, nullable=False)
-    quality_score = Column(Real)
+    quality_score = Column(Float)
     duration_ms = Column(Integer)
     error_type = Column(String)
     error_detail = Column(Text)
