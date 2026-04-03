@@ -23,12 +23,48 @@ BOILERPLATE_PATTERNS = [
     r"sponsored\s*content",
 ]
 
+# Patterns that indicate we got a redirect, consent, or other non-content page
+# rather than the actual page content. These pages should score near zero.
+NON_CONTENT_PATTERNS = [
+    r"(please\s+)?(click|tap)\s+here\s+if\s+(you\s+are\s+)?not\s+redirected",
+    r"you\s+(will\s+be|are\s+being)\s+redirected",
+    r"redirecting\s*(you\s+)?to",
+    r"javascript\s+(is\s+)?(required|must\s+be\s+enabled|needs\s+to\s+be\s+enabled)",
+    r"enable\s+javascript\s+(to\s+(continue|view|access)|in\s+your\s+browser)",
+    r"this\s+(page|site|content)\s+requires\s+javascript",
+    r"your\s+browser\s+(does\s+not|doesn.t)\s+support",
+    r"please\s+(update|upgrade)\s+your\s+browser",
+    r"access\s+denied",
+    r"403\s+forbidden",
+    r"please\s+verify\s+(you\s+are|that\s+you.re)\s+(a\s+)?human",
+    r"(complete|solve)\s+(the\s+)?(captcha|security\s+check|challenge)",
+    r"checking\s+(your|if\s+the\s+site)\s+(browser|connection)",
+    r"please\s+wait\s+while\s+we\s+(verify|check|redirect)",
+    r"one\s+moment\s*[.,]?\s*please",
+    r"this\s+page\s+has\s+moved",
+    r"unusual\s+traffic\s+from\s+your\s+(computer|network)",
+    r"are\s+you\s+a\s+robot",
+    r"we\s+need\s+to\s+confirm\s+(you.re|that\s+you)",
+    r"consent\s+required",
+    r"before\s+you\s+continue\s+to\s+google",
+    r"javascript\s+isn.t\s+enabled\s+in\s+your\s+browser",
+    r"this\s+file\s+can.t\s+be\s+opened",
+    r"enable\s+and\s+reload",
+]
+
+_non_content_re = re.compile("|".join(NON_CONTENT_PATTERNS), re.IGNORECASE)
 _boilerplate_re = re.compile("|".join(BOILERPLATE_PATTERNS), re.IGNORECASE)
 _sentence_end = re.compile(r"[.!?]\s")
 
 
 def check_quality(text: str, input_type: str = "url") -> float:
     if not text or not text.strip():
+        return 0.0
+
+    # Check for non-content pages (redirects, consent walls, CAPTCHAs, etc.)
+    # Short text with non-content signals is almost certainly not real content.
+    non_content = _non_content_score(text)
+    if non_content == 0.0:
         return 0.0
 
     scores = []
@@ -46,6 +82,33 @@ def check_quality(text: str, input_type: str = "url") -> float:
     scores.append((_encoding_score(text), 0.15))
 
     return sum(score * weight for score, weight in scores)
+
+
+def _non_content_score(text: str) -> float:
+    """Detect redirect pages, consent walls, CAPTCHAs, and other non-content.
+
+    Returns 0.0 if the text is almost certainly a non-content page,
+    1.0 otherwise. Uses both pattern matching and a word-count heuristic:
+    a short page (< 50 words) with any non-content signal is rejected.
+    A longer page needs a higher density of signals to be rejected.
+    """
+    matches = _non_content_re.findall(text)
+    if not matches:
+        return 1.0
+
+    word_count = len(text.split())
+
+    # Very short text with any non-content pattern is almost certainly garbage
+    if word_count < 50:
+        return 0.0
+
+    # For longer text, reject if non-content patterns dominate
+    match_chars = sum(len(m) for m in matches)
+    ratio = match_chars / max(len(text), 1)
+    if ratio > 0.05:
+        return 0.0
+
+    return 1.0
 
 
 def _structural_coherence(text: str) -> float:
